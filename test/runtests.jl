@@ -10,7 +10,7 @@ let
 
     @test nrow(mts.data) == 20
     @test mts.index == [1,6,11,16]
-    @test issubtype(eltype(mts.views), AbstractDataFrame )
+    @test issubtype(eltype(mts.views), AbstractDataFrame)
     @test length(mts) == 4
 
     @test size(mts[1]) == (5,3)
