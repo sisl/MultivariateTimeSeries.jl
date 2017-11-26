@@ -8,6 +8,7 @@ module MultivariateTimeSeries
 using ZipFile
 using Reexport
 @reexport using DataFrames
+using DataFrames.printtable
 
 export
         MTS,
