@@ -16,7 +16,8 @@ export
         read_data,
         read_data_labeled,
         write_data,
-        normalize01
+        normalize01,
+        append_stop_token
 
 const METAFILE = "_meta.txt"
 const DATAFILE = "data.csv.gz"
@@ -406,5 +407,25 @@ function Base.vec(mts::MTS, i::Int)
     [A[i,:] for i in 1:size(A,1)]
 end
 
+"""
+    append_stop_token(mts::MTS)
+
+Add a stop token column that is only true at the end of a sequence. Token type T.
+"""
+function append_stop_token(mts::MTS; T=Float64, colname=:stop)
+    #update data
+    V = []
+    for i in eachindex(mts.index)
+        start_ind, end_ind = mts.index[i], end_index(i, mts.data, mts.index)
+        d = mts.data[start_ind:end_ind,:]
+        d[colname] = zero(T)
+        push!(d, fill(zero(T), ncol(d)))
+        d[end, end] = one(T)
+        push!(V, d)
+    end
+    data = vcat(V...)
+    index = [mts.index[i]+(i-1) for i=1:length(mts.index)]
+    MTS(data, index)
+end
 
 end # module
