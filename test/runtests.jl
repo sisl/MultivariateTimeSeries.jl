@@ -28,6 +28,11 @@ let
 
     @test mts == mts2 == mts3
     @test labels == labels2
+    v = vec(mts)
+
+    mts4 = normalize01(mts)
+    @test maximum(maximum(mts4)) <= 1.0
+    @test minimum(minimum(mts4)) >= 0.0
 end
 
 let
@@ -36,3 +41,18 @@ let
     mts = MTS(v)
     @test all(x==y for (x,y) in zip(mts, v))
 end
+
+let
+    srand(0)
+    N = 5
+    v1 = [DataFrame(rand(rand(3:5), 3)) for i=1:N]
+    v2 = [DataFrame(rand(rand(3:5), 3)) for i=1:N]
+    m1 = MTS(v1)
+    m2 = MTS(v2)
+    mts = vcat(m1, m2)
+    
+    @test all([mts[i] == m1[i] for i=1:N])
+    @test all([mts[i+N] == m2[i] for i=1:N])
+end
+
+

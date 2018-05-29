@@ -15,7 +15,8 @@ export
         has_labels,
         read_data,
         read_data_labeled,
-        write_data
+        write_data,
+        normalize01
 
 const METAFILE = "_meta.txt"
 const DATAFILE = "data.csv.gz"
@@ -365,10 +366,45 @@ Returns the maximum values over all records for each feature.
 """
 Base.maximum(mts::MTS) = [maximum(mts.data[s]) for s in names(mts)]
 """
+    normalize01(mts::MTS)
+
+Returns a new mts where each column is rescaled to [0,1].
+"""
+function normalize01(mts::MTS; fillval::Float64=0.5)
+    mts1 = deepcopy(mts)
+    mins, maxes = minimum(mts), maximum(mts)
+    @assert length(mins) == length(maxes)
+    for i = 1:length(mins) 
+        d = maxes[i] - mins[i]
+        mts1.data[i] = iszero(d) ? fill(fillval, length(mts1.data[i])) : (mts1.data[i] - mins[i]) ./ d
+    end
+    mts1
+end
+"""
     DataFrames.ncol(mts::MTS) 
 
 Returns the number of features in the dataset.
 """
 DataFrames.ncol(mts::MTS) = ncol(mts.data)
+
+function Base.vcat(m1::MTS, m2::MTS) 
+    data = vcat(m1.data, m2.data)
+    index = vcat(m1.index, nrow(m1.data)+m2.index)
+    MTS(data, index)
+end
+
+"""
+    vec(mts::MTS) 
+
+Convert to vec of vec of vec representation.  Some ML packages, e.g., Flux.jl, use this format.
+"""
+function Base.vec(mts::MTS)
+    [vec(mts,i) for i=1:length(mts)]
+end
+function Base.vec(mts::MTS, i::Int) 
+    A = convert(Array{Float64,2}, mts[i])
+    [A[i,:] for i in 1:size(A,1)]
+end
+
 
 end # module
