@@ -427,5 +427,11 @@ function append_stop_token(mts::MTS; T=Float64, colname=:stop)
     index = [mts.index[i]+(i-1) for i=1:length(mts.index)]
     MTS(data, index)
 end
+"""
+    Base.repeat(mts::MTS, N::Int)
+
+Stack mts vertically N times.
+"""
+Base.repeat(mts::MTS, N::Int) = foldl(vcat, mts for i=1:N)
 
 end # module
