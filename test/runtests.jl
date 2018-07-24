@@ -55,4 +55,16 @@ let
     @test all([mts[i+N] == m2[i] for i=1:N])
 end
 
+let 
+    srand(0)
+    A = [1 2; 3 4; 5 6; 7 8]
+    d = DataFrame(A)
+    mts = MTS(d, [1, 3])
+    inds = findfirst(d->d[:x1] > 2, mts) 
+    @test inds == [2, 1]
+    mts1 = trim(mts, inds)
+    @test map(nrow, mts1) == [2, 1]
+    mts1 = transform(d->d[[:x1]], mts)
+    @test map(length, mts1) == [1, 1]
+end
 

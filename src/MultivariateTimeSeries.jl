@@ -17,7 +17,10 @@ export
         read_data_labeled,
         write_data,
         normalize01,
-        append_stop_token
+        append_stop_token,
+        test_mts,
+        trim,
+        transform
 
 const METAFILE = "_meta.txt"
 const DATAFILE = "data.csv.gz"
@@ -433,5 +436,65 @@ end
 Stack mts vertically N times.
 """
 Base.repeat(mts::MTS, N::Int) = foldl(vcat, mts for i=1:N)
+
+"""
+    Base.findfirst(f::Function, df::AbstractDataFrame)
+
+Find the first row of the dataframe df where f is true.  Returns 0 if not found.
+"""
+function Base.findfirst(f::Function, df::AbstractDataFrame)
+    i = 1
+    for r in eachrow(df)
+        f(r) && return i
+        i += 1
+    end
+    return 0
+end
+"""
+    Base.findfirst(f::Function, mts::MTS) 
+
+Apply findfirst to each dataframe in mts returning a vector of integers that indicate the first row where findfirst is true. 
+"""
+Base.findfirst(f::Function, mts::MTS) = map(d->findfirst(f,d), mts)
+
+"""
+    transform(f::Function, mts::MTS)
+
+Apply f to each dataframe in mts returning a new MTS object.
+"""
+function transform(f::Function, mts::MTS)
+    dfs = Array{DataFrame}(length(mts)) 
+    for i in 1:length(mts)
+        dfs[i] = f(mts[i]) |> DataFrame
+    end
+    MTS(dfs)
+end
+
+"""
+    trim(mts::MTS, inds::Vector{Int})
+
+Trim each dataframe in mts according to inds.  For each dataframe, rows 1:inds[i] are kept.  Invalid inds[i] are ignored.  A new MTS object is returned.
+"""
+function trim(mts::MTS, inds::Vector{Int})
+    @assert length(mts) == length(inds)
+    dfs = Array{DataFrame}(length(inds)) 
+    for i = 1:length(inds)
+        rng_end = inds[i] in 1:nrow(mts[i]) ? inds[i] : nrow(mts[i])
+        dfs[i] = mts[i][1:rng_end,:] |> DataFrame
+    end
+    MTS(dfs)
+end
+
+"""
+    test_mts(rng::AbstractRNG=Base.GLOBAL_RNG)
+
+Generate an MTS populated with some random values for testing use.
+"""
+function test_mts(rng::AbstractRNG=Base.GLOBAL_RNG)
+	R = rand(rng, 20, 3)
+    d = DataFrame(R)
+    mts = MTS(d, [1, 6, 11, 16])
+    mts
+end
 
 end # module
