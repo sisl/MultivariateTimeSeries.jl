@@ -68,3 +68,9 @@ let
     @test map(length, mts1) == [1, 1]
 end
 
+let
+    mts = test_mts()
+    mts1 = zero(mts)
+    @test mts1[1][1,1] == 0.0
+end
+

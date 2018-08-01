@@ -20,7 +20,8 @@ export
         append_stop_token,
         test_mts,
         trim,
-        transform
+        transform,
+        transform_cols
 
 const METAFILE = "_meta.txt"
 const DATAFILE = "data.csv.gz"
@@ -496,5 +497,27 @@ function test_mts(rng::AbstractRNG=Base.GLOBAL_RNG)
     mts = MTS(d, [1, 6, 11, 16])
     mts
 end
+
+"""
+    transform_cols(f::Function, mts::MTS)
+
+Apply f to each column of all entries of mts
+"""
+function transform_cols(f::Function, mts::MTS)
+    transform(mts) do d
+        df = d[:]
+        for c in names(df)
+            df[c] = f(df[c])
+        end
+        df
+    end
+end
+
+"""
+    Base.zero(mts::MTS)
+
+Apply zero function to all entries of mts
+"""
+Base.zero(mts::MTS) = transform_cols(zero, mts)
 
 end # module
