@@ -52,16 +52,22 @@ function MTS(data::DataFrame, index::Vector{Int})
     MTS(data, index, views)
 end
 """
-    MTS(v::AbstractVector{DataFrame})
+    MTS{T<:AbstractDataFrame}(v::AbstractVector{T})
 
 Create MTS object from a vector of DataFrames.  All dataframes must contain the same fields. 
 """
-function MTS(v::AbstractVector{DataFrame})
+function MTS{T<:AbstractDataFrame}(v::AbstractVector{T})
     index_ = cumsum([nrow(d) for d in v])+1
     index = [1; index_[1:end-1]]
     data = vcat(v...)
     MTS(data, index)
 end
+"""
+    MTS(mts::MTS, inds::UnitRange{Int}) 
+
+Create MTS object from mts using only data at inds.  
+"""
+MTS(mts::MTS, inds::UnitRange{Int}) = MTS(mts[inds]) 
 
 """
     end_index(i::Int, d::DataFrame, index::AbstractVector{Int})
@@ -392,9 +398,10 @@ Returns the number of features in the dataset.
 """
 DataFrames.ncol(mts::MTS) = ncol(mts.data)
 
-function Base.vcat(m1::MTS, m2::MTS) 
-    data = vcat(m1.data, m2.data)
-    index = vcat(m1.index, nrow(m1.data)+m2.index)
+function Base.vcat(m1::MTS, ms::MTS...) 
+    offsets = vcat(nrow(m1.data), [nrow(m.data) for m in ms]...)[1:end-1] |> cumsum
+    data = vcat(m1.data, [m.data for m in ms]...)
+    index = vcat(m1.index, [m.index+o for (m,o) in zip(ms,offsets)]...)
     MTS(data, index)
 end
 

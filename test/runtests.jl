@@ -47,12 +47,15 @@ let
     N = 5
     v1 = [DataFrame(rand(rand(3:5), 3)) for i=1:N]
     v2 = [DataFrame(rand(rand(3:5), 3)) for i=1:N]
+    v3 = [DataFrame(rand(rand(3:5), 3)) for i=1:N]
     m1 = MTS(v1)
     m2 = MTS(v2)
-    mts = vcat(m1, m2)
+    m3 = MTS(v3)
+    mts = vcat(m1, m2, m3)
     
     @test all([mts[i] == m1[i] for i=1:N])
     @test all([mts[i+N] == m2[i] for i=1:N])
+    @test all([mts[i+2N] == m3[i] for i=1:N])
 end
 
 let 
