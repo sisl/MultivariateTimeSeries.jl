@@ -5,10 +5,11 @@ A package for storing and working with heterogeneous multivariate time series da
 """
 module MultivariateTimeSeries
 
+using Random
 using ZipFile
 using Reexport
 @reexport using DataFrames
-using DataFrames.printtable
+using DataFrames: printtable
 
 export
         MTS,
@@ -44,20 +45,20 @@ end
 Create MTS object from a merged dataframe data and index containing the start indices of each record.
 """
 function MTS(data::DataFrame, index::Vector{Int})
-    views = Vector{SubDataFrame}(length(index))
+    views = Vector{SubDataFrame}(undef,length(index))
     for i in eachindex(index)
         start_ind, end_ind = index[i], end_index(i, data, index) 
-        views[i] = view(data, start_ind:end_ind)
+        views[i] = view(data, start_ind:end_ind, :)
     end
     MTS(data, index, views)
 end
 """
-    MTS{T<:AbstractDataFrame}(v::AbstractVector{T})
+    MTS(v::AbstractVector{T}) where {T<:AbstractDataFrame}
 
 Create MTS object from a vector of DataFrames.  All dataframes must contain the same fields. 
 """
-function MTS{T<:AbstractDataFrame}(v::AbstractVector{T})
-    index_ = cumsum([nrow(d) for d in v])+1
+function MTS(v::AbstractVector{T}) where {T<:AbstractDataFrame}
+    index_ = cumsum([nrow(d) for d in v]) .+ 1
     index = [1; index_[1:end-1]]
     data = vcat(v...)
     MTS(data, index)
@@ -204,9 +205,9 @@ end
 Read and parse dataset meta file.
 """
 function read_meta(io::IO)
-    s = readstring(io)
-    toks = split(s, ","; keep=false) #line1: indices
-    index = parse.(Int, toks)
+    s = read(io,String)
+    toks = split(s, ","; keepempty=false) #line1: indices
+    index = Base.parse.(Int, toks)
     index
 end
 """
@@ -215,11 +216,13 @@ end
 Read and parse dataset labels file.
 """
 function read_labels(io::IO)
-    typ = eval(parse(readline(io))) #line1: eltype
+    typ = eval(Meta.parse(readline(io))) #line1: eltype
     labels = split(readline(io), ",") #line2: labels
     if typ in [Bool, Int, Int32, Int64, Float32, Float64] 
-        labels = parse.(typ, labels)
-    elseif typ in [Symbol]
+        labels = Base.parse.(typ, labels)
+    elseif typ == Symbol
+        labels = Symbol.(labels)
+    else #fall back on convert
         labels = convert(Vector{typ}, labels)
     end
     labels
@@ -256,11 +259,11 @@ Returns true if dataset in directory contains labels.
 has_labels(d::Dir) = isfile(joinpath(d.path, LABELFILE))
 
 """
-    write_data{T}(zipfile::AbstractString, mts::MTS, labels::AbstractVector{T}=Int[])
+    write_data(zipfile::AbstractString, mts::MTS, labels::AbstractVector{T}=Int[]) where T
 
 Write data to file.  Optionally, include labels.
 """
-function write_data{T}(zipfile::AbstractString, mts::MTS, labels::AbstractVector{T}=Int[])
+function write_data(zipfile::AbstractString, mts::MTS, labels::AbstractVector{T}=Int[]) where T
     w = ZipFile.Writer(zipfile)
 
     f_meta = ZipFile.addfile(w, METAFILE)
@@ -285,11 +288,11 @@ function write_meta(io::IO, mts::MTS)
     println(io, join(mts.index, ","))    
 end
 """
-    write_labels{T}(io::IO, labels::AbstractVector{T})
+    write_labels(io::IO, labels::AbstractVector{T}) where T
 
 Write labels file.
 """
-function write_labels{T}(io::IO, labels::AbstractVector{T})
+function write_labels(io::IO, labels::AbstractVector{T}) where T
     println(io, T)    
     println(io, join(labels, ","))    
 end
@@ -309,7 +312,7 @@ end
 Returns file handle of file from zipfile.
 """
 function Base.open(r::ZipFile.Reader, file::AbstractString)
-    i = findfirst([f.name for f in r.files], file)
+    i = something(findfirst(isequal(file), [f.name for f in r.files]), 0)
     i > 0 || error("File not found: $file")
     return r.files[i] 
 end
@@ -329,9 +332,12 @@ Returns the number of records in the dataset.
 Base.length(mts::MTS) = length(mts.views)
 
 #iterate over all records in dataset
-Base.start(mts::MTS) = 1 
-Base.next(mts::MTS, i::Int) = (mts.views[i], i+1)
-Base.done(mts::MTS, i::Int) = i > length(mts.views)
+function Base.iterate(mts::MTS)
+    return (length(mts) > 0) ? (mts.views[1], 2) : nothing
+end
+function Base.iterate(mts::MTS, i::Int) 
+    return (i > length(mts)) ? nothing : (mts.views[i], i+1)
+end
 function Base.:(==)(mts1::MTS, mts2::MTS)
     mts1.data == mts2.data
     mts1.index == mts2.index
@@ -387,7 +393,7 @@ function normalize01(mts::MTS; fillval::Float64=0.5)
     @assert length(mins) == length(maxes)
     for i = 1:length(mins) 
         d = maxes[i] - mins[i]
-        mts1.data[i] = iszero(d) ? fill(fillval, length(mts1.data[i])) : (mts1.data[i] - mins[i]) ./ d
+        mts1.data[i] = iszero(d) ? fill(fillval, nrow(mts1.data[i])) : (mts1.data[i] .- mins[i]) ./ d
     end
     mts1
 end
@@ -401,7 +407,7 @@ DataFrames.ncol(mts::MTS) = ncol(mts.data)
 function Base.vcat(m1::MTS, ms::MTS...) 
     offsets = vcat(nrow(m1.data), [nrow(m.data) for m in ms]...)[1:end-1] |> cumsum
     data = vcat(m1.data, [m.data for m in ms]...)
-    index = vcat(m1.index, [m.index+o for (m,o) in zip(ms,offsets)]...)
+    index = vcat(m1.index, [m.index.+o for (m,o) in zip(ms,offsets)]...)
     MTS(data, index)
 end
 
@@ -471,9 +477,9 @@ Base.findfirst(f::Function, mts::MTS) = map(d->findfirst(f,d), mts)
 Apply f to each dataframe in mts returning a new MTS object.
 """
 function transform(f::Function, mts::MTS)
-    dfs = Array{DataFrame}(length(mts)) 
+    dfs = Array{DataFrame}(undef,length(mts)) 
     for i in 1:length(mts)
-        dfs[i] = f(mts[i]) |> DataFrame
+        dfs[i] = copy(f(mts[i])) #defensive copy, needed?
     end
     MTS(dfs)
 end
@@ -485,20 +491,20 @@ Trim each dataframe in mts according to inds.  For each dataframe, rows 1:inds[i
 """
 function trim(mts::MTS, inds::Vector{Int})
     @assert length(mts) == length(inds)
-    dfs = Array{DataFrame}(length(inds)) 
+    dfs = Array{DataFrame}(undef,length(inds)) 
     for i = 1:length(inds)
         rng_end = inds[i] in 1:nrow(mts[i]) ? inds[i] : nrow(mts[i])
-        dfs[i] = mts[i][1:rng_end,:] |> DataFrame
+        dfs[i] = convert(DataFrame, mts[i][1:rng_end,:]) 
     end
     MTS(dfs)
 end
 
 """
-    test_mts(rng::AbstractRNG=Base.GLOBAL_RNG)
+    test_mts(rng::AbstractRNG=Random.G LOBAL_RNG)
 
 Generate an MTS populated with some random values for testing use.
 """
-function test_mts(rng::AbstractRNG=Base.GLOBAL_RNG)
+function test_mts(rng::AbstractRNG=Random.GLOBAL_RNG)
 	R = rand(rng, 20, 3)
     d = DataFrame(R)
     mts = MTS(d, [1, 6, 11, 16])
@@ -512,7 +518,7 @@ Apply f to each column of all entries of mts
 """
 function transform_cols(f::Function, mts::MTS)
     transform(mts) do d
-        df = d[:]
+        df = d[:,:]
         for c in names(df)
             df[c] = f(df[c])
         end

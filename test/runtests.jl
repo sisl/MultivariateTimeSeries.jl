@@ -1,8 +1,8 @@
 using MultivariateTimeSeries
-using Base.Test
+using Random,Test
 
 let
-    srand(0)
+    Random.seed!(0)
     R = rand(20,3)
     d = DataFrame(R)
     mts = MTS(d, [1,6,11,16])
@@ -10,7 +10,7 @@ let
 
     @test nrow(mts.data) == 20
     @test mts.index == [1,6,11,16]
-    @test issubtype(eltype(mts.views), AbstractDataFrame)
+    @test eltype(mts.views) <: AbstractDataFrame
     @test length(mts) == 4
 
     @test size(mts[1]) == (5,3)
@@ -36,14 +36,14 @@ let
 end
 
 let
-    srand(0)
+    Random.seed!(0)
     v = [DataFrame(rand(rand(3:5), 3)) for i=1:5]
     mts = MTS(v)
     @test all(x==y for (x,y) in zip(mts, v))
 end
 
 let
-    srand(0)
+    Random.seed!(0)
     N = 5
     v1 = [DataFrame(rand(rand(3:5), 3)) for i=1:N]
     v2 = [DataFrame(rand(rand(3:5), 3)) for i=1:N]
@@ -59,7 +59,7 @@ let
 end
 
 let 
-    srand(0)
+    Random.seed!(0)
     A = [1 2; 3 4; 5 6; 7 8]
     d = DataFrame(A)
     mts = MTS(d, [1, 3])
@@ -67,8 +67,8 @@ let
     @test inds == [2, 1]
     mts1 = trim(mts, inds)
     @test map(nrow, mts1) == [2, 1]
-    mts1 = transform(d->d[[:x1]], mts)
-    @test map(length, mts1) == [1, 1]
+    mts1 = transform(d->d[:,[:x1]], mts)
+    @test map(ncol, mts1) == [1, 1]
 end
 
 let
