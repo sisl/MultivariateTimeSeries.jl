@@ -1,0 +1,19 @@
+name = "MultivariateTimeSeries"
+uuid = "90e81e8e-e452-5a4f-b947-96c7fa2704dd"
+
+[compat]
+julia = "≥ 1.0"
+
+[deps]
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+Discretizers = "6e83dbb3-75ca-525b-8ae2-3751f0dd50b4"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
+ZipFile = "a5390f91-8eb1-5f08-bee0-b1d1ffed6cea"
+
+[extras]
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test", "Random"]
