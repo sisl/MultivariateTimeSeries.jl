@@ -10,6 +10,7 @@ using ZipFile
 using Reexport
 @reexport using DataFrames
 using DataFrames: printtable
+using CSV
 
 export
         MTS,
@@ -134,7 +135,7 @@ function read_data(z::Zip)
     index = read_meta(f_meta)
 
     f_data = open(r, DATAFILE)
-    data = readtable(f_data)
+    data = DataFrame!(CSV.File(f_data))
 
     close(r)
     return MTS(data, index)
@@ -151,7 +152,7 @@ function read_data_labeled(z::Zip)
     index = read_meta(f_meta)
 
     f_data = open(r, DATAFILE)
-    data = readtable(f_data)
+    data = DataFrame!(CSV.File(f_data))
 
     labels = nothing
     if LABELFILE in r 
@@ -172,7 +173,7 @@ function read_data(d::Dir)
     close(f_meta)
 
     f_data = open(joinpath(d.path, DATAFILE))
-    data = readtable(f_data)
+    data = DataFrame!(CSV.File(f_data))
     close(f_data)
 
     return MTS(data, index)
@@ -188,7 +189,7 @@ function read_data_labeled(d::Dir)
     close(f_meta)
 
     f_data = open(joinpath(d.path, DATAFILE))
-    data = readtable(f_data)
+    data = DataFrame!(CSV.File(f_data))
     close(f_data)
 
     labels = nothing
