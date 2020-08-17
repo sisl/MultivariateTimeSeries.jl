@@ -16,7 +16,7 @@ let
     @test size(mts[1]) == (5,3)
     @test size(mts) == (4,)
     @test ncol(mts) == 3
-    @test names(mts) == [:x1, :x2, :x3]
+    @test names(mts) == ["x1", "x2", "x3"]
     @test length(collect(mts)) == length(mts.index)
 
     file = joinpath(dirname(@__FILE__), "mts.zip")
@@ -52,7 +52,7 @@ let
     m2 = MTS(v2)
     m3 = MTS(v3)
     mts = vcat(m1, m2, m3)
-    
+
     @test all([mts[i] == m1[i] for i=1:N])
     @test all([mts[i+N] == m2[i] for i=1:N])
     @test all([mts[i+2N] == m3[i] for i=1:N])

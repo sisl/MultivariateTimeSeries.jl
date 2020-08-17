@@ -131,11 +131,13 @@ Load and return a dataset from a zip file.
 function read_data(z::Zip)
     r = ZipFile.Reader(z.path)
 
-    f_meta = open(r, METAFILE)
-    index = read_meta(f_meta)
+    d = Dict{String,ZipFile.ReadableFile}()
+    for f in r.files
+        d[f.name] = f
+    end
 
-    f_data = open(r, DATAFILE)
-    data = DataFrame!(CSV.File(f_data))
+    index = read_meta(d[METAFILE])
+    data = CSV.File(read(d[DATAFILE])) |> DataFrame
 
     close(r)
     return MTS(data, index)
@@ -148,16 +150,17 @@ Load and return a labeled dataset from a zip file.  Returns a tuple (data, label
 function read_data_labeled(z::Zip)
     r = ZipFile.Reader(z.path)
 
-    f_meta = open(r, METAFILE)
-    index = read_meta(f_meta)
+    d = Dict{String,ZipFile.ReadableFile}()
+    for f in r.files
+        d[f.name] = f
+    end
 
-    f_data = open(r, DATAFILE)
-    data = DataFrame!(CSV.File(f_data))
+    index = read_meta(read(d[METAFILE]))
+    data = CSV.File(read(d[DATAFILE])) |> DataFrame
 
     labels = nothing
-    if LABELFILE in r 
-        f_label = open(r, LABELFILE)
-        labels = read_labels(f_label)
+    if haskey(d, LABELFILE) 
+        labels = read_labels(d[LABELFILE])
     end
     close(r)
     return (MTS(data, index), labels)
@@ -172,9 +175,7 @@ function read_data(d::Dir)
     index = read_meta(f_meta)
     close(f_meta)
 
-    f_data = open(joinpath(d.path, DATAFILE))
-    data = DataFrame!(CSV.File(f_data))
-    close(f_data)
+    data = CSV.File(joinpath(d.path, DATAFILE)) |> DataFrame
 
     return MTS(data, index)
 end
@@ -188,9 +189,7 @@ function read_data_labeled(d::Dir)
     index = read_meta(f_meta)
     close(f_meta)
 
-    f_data = open(joinpath(d.path, DATAFILE))
-    data = DataFrame!(CSV.File(f_data))
-    close(f_data)
+    data = CSV.File(joinpath(d.path, DATAFILE)) |> DataFrame
 
     labels = nothing
     if isfile(joinpath(d.path, LABELFILE)) 
@@ -211,6 +210,8 @@ function read_meta(io::IO)
     index = Base.parse.(Int, toks)
     index
 end
+read_meta(v::Vector{UInt8}) = IOBuffer(v) |> read_meta
+
 """
     read_labels(io::IO)
 
@@ -364,25 +365,25 @@ Base.size(mts::MTS) = (length(mts),)
 
 Returns the minimum value over all records for feature sym.
 """
-Base.minimum(mts::MTS, sym::Symbol) = minimum(mts.data[sym])
+Base.minimum(mts::MTS, sym::Symbol) = minimum(mts.data[!,sym])
 """
     Base.minimum(mts::MTS) 
 
 Returns the minimum values over all records for each feature. 
 """
-Base.minimum(mts::MTS) = [minimum(mts.data[s]) for s in names(mts)]
+Base.minimum(mts::MTS) = [minimum(mts.data[!,s]) for s in names(mts)]
 """
     Base.maximum(mts::MTS, sym::Symbol) 
 
 Returns the maximum value over all records for feature sym.
 """
-Base.maximum(mts::MTS, sym::Symbol) = maximum(mts.data[sym])
+Base.maximum(mts::MTS, sym::Symbol) = maximum(mts.data[!,sym])
 """
     Base.maximum(mts::MTS) 
 
 Returns the maximum values over all records for each feature.
 """
-Base.maximum(mts::MTS) = [maximum(mts.data[s]) for s in names(mts)]
+Base.maximum(mts::MTS) = [maximum(mts.data[!,s]) for s in names(mts)]
 """
     normalize01(mts::MTS)
 
@@ -394,7 +395,7 @@ function normalize01(mts::MTS; fillval::Float64=0.5)
     @assert length(mins) == length(maxes)
     for i = 1:length(mins) 
         d = maxes[i] - mins[i]
-        mts1.data[i] = iszero(d) ? fill(fillval, nrow(mts1.data[i])) : (mts1.data[i] .- mins[i]) ./ d
+        mts1.data[!,i] = iszero(d) ? fill(fillval, nrow(mts1.data[!,i])) : (mts1.data[!,i] .- mins[i]) ./ d
     end
     mts1
 end
@@ -521,7 +522,7 @@ function transform_cols(f::Function, mts::MTS)
     transform(mts) do d
         df = d[:,:]
         for c in names(df)
-            df[c] = f(df[c])
+            df[!,c] = f(df[!,c])
         end
         df
     end
